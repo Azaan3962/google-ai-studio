@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoLogin Multi-Desktop Command Center (Standalone)</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --bg-panel: #1e293b;
+      --bg-header: #0b1120;
+      --tab-active: #1e293b;
+      --tab-inactive: #0f172a;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --danger: #ef4444;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    /* Top Bar */
+    .app-header {
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -0.02em;
+    }
+    .brand-icon {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, #3b82f6, #06b6d4);
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .cluster-stats {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .stat-pill {
+      background: #1e293b;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    /* Tab Bar (Chrome / Desktop OS style) */
+    .tab-bar {
+      background: var(--bg-header);
+      padding: 6px 12px 0 12px;
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      user-select: none;
+    }
+    .tab-item {
+      padding: 8px 16px;
+      background: var(--tab-inactive);
+      color: var(--text-muted);
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid transparent;
+      border-bottom: none;
+      transition: all 0.15s ease;
+      min-width: 170px;
+      max-width: 240px;
+    }
+    .tab-item:hover {
+      background: #1e293b;
+      color: var(--text);
+    }
+    .tab-item.active {
+      background: var(--tab-active);
+      color: #fff;
+      border-color: var(--border);
+      border-bottom: 1px solid var(--tab-active);
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.25);
+    }
+    .tab-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+    .tab-title {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tab-port {
+      font-size: 10px;
+      font-family: monospace;
+      color: #64748b;
+      background: rgba(0,0,0,0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* Control Strip */
+    .control-strip {
+      background: var(--bg-panel);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn {
+      background: #334155;
+      color: #fff;
+      border: 1px solid #475569;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #475569; }
+    .btn-primary { background: var(--primary); border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    /* Viewer Area */
+    .main-viewport {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+      background: #020617;
+    }
+    .screen-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: auto;
+      padding: 8px;
+    }
+    canvas#vnc-canvas {
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      border-radius: 4px;
+      background: #0f172a;
+      cursor: crosshair;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    /* Overlay Sidebar */
+    .specs-sidebar {
+      width: 320px;
+      background: #111827;
+      border-left: 1px solid var(--border);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      font-size: 13px;
+      overflow-y: auto;
+    }
+    .spec-card {
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .spec-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .spec-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .spec-value {
+      font-family: monospace;
+      color: #93c5fd;
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">GL</div>
+      <span>GoLogin Multi-Desktop Sandbox Center</span>
+    </div>
+    <div class="cluster-stats">
+      <div class="stat-pill">
+        <div class="status-dot"></div>
+        <span>3 Isolated Containers Active</span>
+      </div>
+      <div class="stat-pill">
+        <span>VNC Ports: 5901-5903</span>
+      </div>
+      <div class="stat-pill">
+        <span>WebSocket: 6081-6083</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Chrome-like Tab Bar -->
+  <div class="tab-bar" id="tabBar">
+    <!-- Populated by JS -->
+  </div>
+
+  <!-- Quick Action & Display Controls -->
+  <div class="control-strip">
+    <div class="control-group">
+      <button class="btn btn-primary" onclick="launchGoLogin()">▶ Launch GoLogin App</button>
+      <button class="btn" onclick="sendCtrlAltDel()">Send Ctrl+Alt+Del</button>
+      <button class="btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+      <button class="btn" onclick="syncClipboard()">📋 Sync Clipboard</button>
+    </div>
+    <div class="control-group">
+      <span style="color: #94a3b8; font-size: 12px;" id="streamStatus">Stream: Initializing noVNC...</span>
+      <button class="btn" onclick="reconnectSession()">↺ Reconnect</button>
+    </div>
+  </div>
+
+  <!-- Canvas Stream Viewport -->
+  <div class="main-viewport">
+    <div class="screen-container">
+      <canvas id="vnc-canvas" width="1280" height="720"></canvas>
+    </div>
+
+    <!-- Container Specs Sidebar -->
+    <aside class="specs-sidebar" id="sidebar">
+      <div class="spec-card">
+        <div class="spec-title"><span>Container Sandbox</span><span id="sideContainerName">gologin-desktop-1</span></div>
+        <div class="spec-row"><span>Status:</span><span class="spec-value" style="color: #34d399;" id="sideStatus">Running</span></div>
+        <div class="spec-row"><span>MAC Address:</span><span class="spec-value" id="sideMac">02:42:ac:14:01:01</span></div>
+        <div class="spec-row"><span>VNC Display:</span><span class="spec-value" id="sideVncPort">:1 (5901)</span></div>
+        <div class="spec-row"><span>WebSocket:</span><span class="spec-value" id="sideWsPort">:6081</span></div>
+      </div>
+
+      <div class="spec-card">
+        <div class="spec-title"><span>GoLogin Instance</span><span>Orbita v130</span></div>
+        <div class="spec-row"><span>Client State:</span><span class="spec-value" style="color: #60a5fa;" id="sideGlState">Active</span></div>
+        <div class="spec-row"><span>Profiles:</span><span class="spec-value" id="sideProfiles">8 Profiles</span></div>
+        <div class="spec-row"><span>Active Profile:</span><span class="spec-value" id="sideActiveProfile">US E-Commerce 01</span></div>
+      </div>
+
+      <div class="spec-card">
+        <div class="spec-title"><span>Isolated Proxy</span><span id="sideProxyType">Residential</span></div>
+        <div class="spec-row"><span>Location:</span><span class="spec-value" id="sideProxyLoc">New York, US</span></div>
+        <div class="spec-row"><span>Endpoint:</span><span class="spec-value" id="sideProxyHost">res-us:10801</span></div>
+      </div>
+
+      <div class="spec-card">
+        <div class="spec-title"><span>Live Telemetry</span><span id="sideLatency">18 ms</span></div>
+        <div class="spec-row"><span>CPU Usage:</span><span class="spec-value" id="sideCpu">14.2%</span></div>
+        <div class="spec-row"><span>Memory:</span><span class="spec-value" id="sideMem">1180 MB / 4 GB</span></div>
+        <div class="spec-row"><span>Frame Rate:</span><span class="spec-value">30 FPS</span></div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    // Tab and Session Data
+    let sessions = [
+      {
+        id: 'pc-1',
+        name: 'PC Screen 1',
+        subtitle: 'US Residential',
+        container: 'gologin-desktop-1',
+        vncPort: 5901,
+        wsPort: 6081,
+        mac: '02:42:ac:14:01:01',
+        proxy: 'Residential (New York, US)',
+        proxyHost: 'res-us-east.proxy-mesh.net:10801',
+        activeProfile: 'E-Commerce Seller US_01',
+        profiles: 8,
+        glState: 'Running',
+        cpu: '14.2%',
+        mem: '1180 MB',
+        latency: '18 ms'
+      },
+      {
+        id: 'pc-2',
+        name: 'PC Screen 2',
+        subtitle: 'UK 4G Mobile',
+        container: 'gologin-desktop-2',
+        vncPort: 5902,
+        wsPort: 6082,
+        mac: '02:42:ac:14:01:02',
+        proxy: 'SOCKS5 (London, UK 4G)',
+        proxyHost: 'mobile-gb-lon.proxy-pool.io:10802',
+        activeProfile: 'Crypto Ops UK_Pro',
+        profiles: 5,
+        glState: 'Running',
+        cpu: '9.8%',
+        mem: '940 MB',
+        latency: '24 ms'
+      },
+      {
+        id: 'pc-3',
+        name: 'PC Screen 3',
+        subtitle: 'DE Datacenter',
+        container: 'gologin-desktop-3',
+        vncPort: 5903,
+        wsPort: 6083,
+        mac: '02:42:ac:14:01:03',
+        proxy: 'HTTP (Frankfurt, DE)',
+        proxyHost: 'dc-de-fra.fast-exit.net:8080',
+        activeProfile: 'Affiliate Campaign DE_03',
+        profiles: 12,
+        glState: 'Idle',
+        cpu: '4.1%',
+        mem: '720 MB',
+        latency: '14 ms'
+      }
+    ];
+
+    let currentSessionIndex = 0;
+    const canvas = document.getElementById('vnc-canvas');
+    const ctx = canvas.getContext('2d');
+
+    function renderTabs() {
+      const tabBar = document.getElementById('tabBar');
+      tabBar.innerHTML = '';
+      sessions.forEach((s, idx) => {
+        const tab = document.createElement('div');
+        tab.className = `tab-item ${idx === currentSessionIndex ? 'active' : ''}`;
+        tab.onclick = () => selectTab(idx);
+        tab.innerHTML = `
+          <div class="tab-dot"></div>
+          <div class="tab-title">${s.name} <span style="opacity: 0.6; font-size: 11px;">(${s.subtitle})</span></div>
+          <div class="tab-port">:${s.vncPort}</div>
+        `;
+        tabBar.appendChild(tab);
+      });
+    }
+
+    function selectTab(index) {
+      currentSessionIndex = index;
+      renderTabs();
+      updateSidebar();
+      drawSimulatedDesktop();
+      document.getElementById('streamStatus').innerText = `Connected to ${sessions[index].name} (Port ${sessions[index].vncPort})`;
+    }
+
+    function updateSidebar() {
+      const s = sessions[currentSessionIndex];
+      document.getElementById('sideContainerName').innerText = s.container;
+      document.getElementById('sideMac').innerText = s.mac;
+      document.getElementById('sideVncPort').innerText = `:${s.vncPort - 5900} (${s.vncPort})`;
+      document.getElementById('sideWsPort').innerText = `:${s.wsPort}`;
+      document.getElementById('sideGlState').innerText = s.glState;
+      document.getElementById('sideProfiles').innerText = `${s.profiles} Profiles`;
+      document.getElementById('sideActiveProfile').innerText = s.activeProfile;
+      document.getElementById('sideProxyType').innerText = s.subtitle;
+      document.getElementById('sideProxyLoc').innerText = s.proxy;
+      document.getElementById('sideProxyHost').innerText = s.proxyHost;
+      document.getElementById('sideLatency').innerText = s.latency;
+      document.getElementById('sideCpu').innerText = s.cpu;
+      document.getElementById('sideMem').innerText = `${s.mem} / 4 GB`;
+    }
+
+    // Interactive Canvas XFCE + GoLogin Desktop Stream Simulator
+    let mousePos = { x: 0, y: 0 };
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      mousePos.x = (e.clientX - rect.left) * scaleX;
+      mousePos.y = (e.clientY - rect.top) * scaleY;
+      drawSimulatedDesktop();
+    });
+
+    canvas.addEventListener('click', () => {
+      // simulate interactive click
+      const s = sessions[currentSessionIndex];
+      s.glState = 'Running';
+      updateSidebar();
+      drawSimulatedDesktop();
+    });
+
+    function drawSimulatedDesktop() {
+      const s = sessions[currentSessionIndex];
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // Desktop Wallpaper (XFCE Style Deep Blue)
+      const grad = ctx.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, '#1e293b');
+      grad.addColorStop(1, '#0f172a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Top XFCE Panel
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, w, 28);
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(0, 28, w, 1);
+
+      // Panel Icons
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(8, 5, 18, 18);
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 11px system-ui';
+      ctx.fillText('Applications', 34, 18);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '11px monospace';
+      ctx.fillText(`Container: ${s.container} | IP: 172.20.0.${10 + currentSessionIndex} | Display :${s.vncPort - 5900}`, 140, 18);
+
+      const timeStr = new Date().toLocaleTimeString();
+      ctx.fillText(timeStr, w - 80, 18);
+
+      // Desktop Icons
+      drawDesktopIcon(30, 50, 'GoLogin Client', '#3b82f6');
+      drawDesktopIcon(30, 140, 'Orbita Anti-detect', '#06b6d4');
+      drawDesktopIcon(30, 230, 'Terminal', '#64748b');
+
+      // GoLogin Desktop App Window (Centered)
+      const winX = 140;
+      const winY = 60;
+      const winW = w - 280;
+      const winH = h - 100;
+
+      // Window shadow
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = '#111827';
+      ctx.beginPath();
+      ctx.roundRect(winX, winY, winW, winH, 8);
+      ctx.fill();
+      ctx.shadowBlur = 0; // reset
+
+      // Window Header
+      ctx.fillStyle = '#1f2937';
+      ctx.beginPath();
+      ctx.roundRect(winX, winY, winW, 36, [8, 8, 0, 0]);
+      ctx.fill();
+
+      // Window controls
+      ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(winX + 16, winY + 18, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(winX + 32, winY + 18, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#10b981'; ctx.beginPath(); ctx.arc(winX + 48, winY + 18, 5, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#f9fafb';
+      ctx.font = 'bold 12px system-ui';
+      ctx.fillText(`GoLogin Desktop (Anti-Detect Edition) - [${s.name}]`, winX + 70, winY + 22);
+
+      // Inside GoLogin: Left Navigation Sidebar
+      const sideW = 160;
+      ctx.fillStyle = '#182234';
+      ctx.fillRect(winX, winY + 36, sideW, winH - 36);
+
+      ctx.fillStyle = '#93c5fd';
+      ctx.font = 'bold 11px system-ui';
+      ctx.fillText('PROFILES', winX + 16, winY + 60);
+
+      // Profiles list items
+      const navItems = ['All Profiles (8)', 'Residential US', 'Proxy Manager', 'Fingerprint Vault', 'Orbita Settings'];
+      navItems.forEach((item, i) => {
+        if (i === 0) {
+          ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
+          ctx.fillRect(winX + 8, winY + 75 + i * 28, sideW - 16, 24);
+          ctx.fillStyle = '#60a5fa';
+        } else {
+          ctx.fillStyle = '#9ca3af';
+        }
+        ctx.font = '11px system-ui';
+        ctx.fillText(item, winX + 18, winY + 91 + i * 28);
+      });
+
+      // Inside GoLogin: Profile Table Content
+      const contentX = winX + sideW + 16;
+      const contentY = winY + 52;
+      ctx.fillStyle = '#f3f4f6';
+      ctx.font = 'bold 14px system-ui';
+      ctx.fillText('Active Isolated Environment Profiles', contentX, contentY);
+
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = '11px system-ui';
+      ctx.fillText(`Hardware MAC: ${s.mac} | Proxy: ${s.proxy}`, contentX, contentY + 20);
+
+      // Profile cards
+      for (let i = 0; i < 4; i++) {
+        const cardY = contentY + 36 + i * 68;
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.roundRect(contentX, cardY, winW - sideW - 32, 58, 6);
+        ctx.fill();
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 12px system-ui';
+        const pName = i === 0 ? s.activeProfile : `Isolated Profile #${i + 1} (${s.subtitle})`;
+        ctx.fillText(pName, contentX + 14, cardY + 22);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '10px monospace';
+        ctx.fillText(`OS: Linux X11 | Canvas: Noise Injected | WebGL: NVIDIA GeForce RTX 3080 Mock`, contentX + 14, cardY + 42);
+
+        // Run button
+        const btnX = contentX + winW - sideW - 120;
+        ctx.fillStyle = i === 0 ? '#10b981' : '#3b82f6';
+        ctx.beginPath();
+        ctx.roundRect(btnX, cardY + 16, 75, 26, 4);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px system-ui';
+        ctx.fillText(i === 0 ? 'RUNNING' : 'START', btnX + 14, cardY + 33);
+      }
+
+      // Draw virtual cursor
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(mousePos.x, mousePos.y);
+      ctx.lineTo(mousePos.x + 10, mousePos.y + 10);
+      ctx.lineTo(mousePos.x + 4, mousePos.y + 11);
+      ctx.lineTo(mousePos.x, mousePos.y + 16);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    function drawDesktopIcon(x, y, label, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(x, y, 36, 36, 6);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '9px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x + 18, y + 48);
+      ctx.textAlign = 'left';
+    }
+
+    function launchGoLogin() {
+      const s = sessions[currentSessionIndex];
+      s.glState = 'Running';
+      updateSidebar();
+      drawSimulatedDesktop();
+      alert(`Launched GoLogin Desktop App on ${s.name} inside container ${s.container}`);
+    }
+
+    function sendCtrlAltDel() {
+      alert(`Sent Ctrl+Alt+Del signal to ${sessions[currentSessionIndex].name}`);
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    function syncClipboard() {
+      const text = prompt('Enter text to copy to remote desktop clipboard:');
+      if (text) {
+        sessions[currentSessionIndex].clipboard = text;
+        alert('Clipboard updated on container!');
+      }
+    }
+
+    function reconnectSession() {
+      document.getElementById('streamStatus').innerText = 'Reconnecting to VNC stream...';
+      setTimeout(() => {
+        document.getElementById('streamStatus').innerText = `Connected to ${sessions[currentSessionIndex].name} (Port ${sessions[currentSessionIndex].vncPort})`;
+        drawSimulatedDesktop();
+      }, 600);
+    }
+
+    // Init
+    renderTabs();
+    updateSidebar();
+    drawSimulatedDesktop();
+  </script>
+</body>
+</html>

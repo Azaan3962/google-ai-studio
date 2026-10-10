@@ -1,0 +1,118 @@
+# ==============================================================================
+# GoLogin Multi-Desktop Isolated Sandbox Cluster
+# ==============================================================================
+# Each container runs an isolated X11 / XFCE4 Desktop with noVNC & TigerVNC.
+# Anti-detect isolation guarantees:
+# - Unique virtual display & screen resolution
+# - Unique MAC address & host fingerprint
+# - Dedicated isolated storage volume (cookies, session cache, local profile DB)
+# - Independent proxy tunnel routing per container
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------------------
+  # PC Screen 1 - Primary Anti-Detect Desktop Environment
+  # ----------------------------------------------------------------------------
+  gologin-desktop-1:
+    container_name: gologin-desktop-1
+    image: fredblgr/ubuntu-novnc:20.04
+    restart: unless-stopped
+    mac_address: 02:42:ac:14:01:01
+    hostname: workstation-us-01
+    ports:
+      - "5901:5901"   # Native RFB VNC server
+      - "6081:6080"   # noVNC HTML5 WebSocket & HTTP bridge
+    environment:
+      - RESOLUTION=1920x1080
+      - VNCPWD=gologin123
+      - USER=ubuntu
+      - PASSWORD=ubuntu
+      - GOLOGIN_AUTOSTART=true
+      - PROXY_TYPE=residential_us
+    volumes:
+      - gologin_pc1_data:/home/ubuntu/.config/gologin
+      - gologin_pc1_orbita:/home/ubuntu/.orbita
+      - ./data/shared-scripts:/opt/scripts:ro
+    networks:
+      gologin_isolated_net:
+        ipv4_address: 172.20.0.11
+    shm_size: 2gb
+    security_opt:
+      - seccomp:unconfined
+
+  # ----------------------------------------------------------------------------
+  # PC Screen 2 - Secondary Anti-Detect Desktop Environment
+  # ----------------------------------------------------------------------------
+  gologin-desktop-2:
+    container_name: gologin-desktop-2
+    image: fredblgr/ubuntu-novnc:20.04
+    restart: unless-stopped
+    mac_address: 02:42:ac:14:01:02
+    hostname: workstation-uk-02
+    ports:
+      - "5902:5901"   # Native RFB VNC server
+      - "6082:6080"   # noVNC HTML5 WebSocket & HTTP bridge
+    environment:
+      - RESOLUTION=1920x1080
+      - VNCPWD=gologin123
+      - USER=ubuntu
+      - PASSWORD=ubuntu
+      - GOLOGIN_AUTOSTART=true
+      - PROXY_TYPE=mobile_uk
+    volumes:
+      - gologin_pc2_data:/home/ubuntu/.config/gologin
+      - gologin_pc2_orbita:/home/ubuntu/.orbita
+      - ./data/shared-scripts:/opt/scripts:ro
+    networks:
+      gologin_isolated_net:
+        ipv4_address: 172.20.0.12
+    shm_size: 2gb
+    security_opt:
+      - seccomp:unconfined
+
+  # ----------------------------------------------------------------------------
+  # PC Screen 3 - Tertiary Anti-Detect Desktop Environment
+  # ----------------------------------------------------------------------------
+  gologin-desktop-3:
+    container_name: gologin-desktop-3
+    image: fredblgr/ubuntu-novnc:20.04
+    restart: unless-stopped
+    mac_address: 02:42:ac:14:01:03
+    hostname: workstation-de-03
+    ports:
+      - "5903:5901"   # Native RFB VNC server
+      - "6083:6080"   # noVNC HTML5 WebSocket & HTTP bridge
+    environment:
+      - RESOLUTION=1920x1080
+      - VNCPWD=gologin123
+      - USER=ubuntu
+      - PASSWORD=ubuntu
+      - GOLOGIN_AUTOSTART=true
+      - PROXY_TYPE=datacenter_de
+    volumes:
+      - gologin_pc3_data:/home/ubuntu/.config/gologin
+      - gologin_pc3_orbita:/home/ubuntu/.orbita
+      - ./data/shared-scripts:/opt/scripts:ro
+    networks:
+      gologin_isolated_net:
+        ipv4_address: 172.20.0.13
+    shm_size: 2gb
+    security_opt:
+      - seccomp:unconfined
+
+volumes:
+  gologin_pc1_data:
+  gologin_pc1_orbita:
+  gologin_pc2_data:
+  gologin_pc2_orbita:
+  gologin_pc3_data:
+  gologin_pc3_orbita:
+
+networks:
+  gologin_isolated_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

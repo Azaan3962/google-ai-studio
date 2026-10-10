@@ -1,0 +1,6 @@
+{
+  "name": "GoLogin Multi-Desktop Command Center",
+  "description": "Multi-tab browser dashboard orchestrating isolated desktop environments and noVNC streams for GoLogin anti-detect operations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
